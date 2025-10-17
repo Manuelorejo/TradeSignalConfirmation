@@ -1,0 +1,10 @@
+streamlit
+requests
+pandas
+numpy
+torch
+transformers
+yfinance
+matplotlib
+plotly
+groq
