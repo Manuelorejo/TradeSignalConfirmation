@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Oct 17 20:59:52 2025
-
-@author: Oreoluwa
-"""
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -45,7 +38,18 @@ def load_finbert():
 # -----------------------------------------------------
 # FETCH MARKET DATA
 # -----------------------------------------------------
+
 def fetch_price_history(symbol: str, period="6mo", interval="1d"):
+    def get_valid_period(interval):
+        if interval == "1m":
+            return "7d"
+        elif interval in ["2m", "5m", "15m", "30m", "90m"]:
+            return "60d"
+        else:
+            return "1mo"
+
+    period = get_valid_period(interval)
+
     df = yf.download(symbol, period=period, interval=interval, progress=False)
     return df.dropna()
 
@@ -379,7 +383,22 @@ symbol_queries = {
 # -----------------------------------------------------
 st.sidebar.header("🧭 Input Settings")
 symbol = st.sidebar.selectbox("Select a market symbol:", list(symbol_queries.keys()), index=0)
-period = st.sidebar.selectbox("Select historical period:", ["3mo", "6mo", "1y"], index=1)
+
+
+timeframes = {
+    "1 Minute": "1m",
+    "5 Minutes": "5m",
+    "15 Minutes": "15m",
+    "30 Minutes": "30m",
+    "1 Hour": "1h",
+    "4 Hours": "4h",
+    "1 Day": "1d",
+    "1 Week": "1wk",
+    "1 Month": "1mo"
+}
+
+selected_timeframe = st.selectbox("⏱️ Select Timeframe", list(timeframes.keys()))
+interval = timeframes[selected_timeframe]
 analyze_btn = st.sidebar.button("🔍 Analyze Market")
 
 # -----------------------------------------------------
@@ -388,9 +407,13 @@ analyze_btn = st.sidebar.button("🔍 Analyze Market")
 if analyze_btn:
     with st.spinner("Fetching and analyzing market data..."):
         query = symbol_queries[symbol]
-        df = fetch_price_history(symbol, period)
+        df = fetch_price_history(symbol, interval)
         df = add_technical_indicators(df)
-        latest = df.iloc[-1].astype(float, errors="ignore")
+        if df.empty:
+            st.error(f"⚠️ No market data available for {query} ({interval}). Try another timeframe or asset.")
+            st.stop()
+        else:
+            latest = df.iloc[-1].astype(float, errors="ignore")
         headlines = fetch_newsdata(query)
         sentiment = finbert_sentiment_analysis(headlines, symbol)
         llm_summary = generate_llm_summary(symbol, latest, sentiment, headlines)
